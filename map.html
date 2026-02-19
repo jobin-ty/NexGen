@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXGEN | Tactical Grid</title>
+    
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('nexgen-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;400;600;800&family=Orbitron:wght@600;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg: #05010a; 
+            --uv: #8b5cf6; 
+            --emerald: #00ffaa; 
+            --text-main: #f1f5f9;
+            --glass: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.08);
+            --map-accent: rgba(139, 92, 246, 0.15);
+        }
+
+        [data-theme="light"] {
+            --bg: #f8fafc;
+            --uv: #6d28d9;
+            --emerald: #059669;
+            --text-main: #0f172a;
+            --glass: rgba(15, 23, 42, 0.02);
+            --border: rgba(15, 23, 42, 0.1);
+            --map-accent: rgba(109, 40, 217, 0.05);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            transition: background 0.5s ease;
+        }
+
+        /* --- STYLIZED NAV --- */
+        .top-nav {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 95%;
+            max-width: 1400px;
+            height: 70px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 30px;
+            z-index: 1000;
+            backdrop-filter: blur(25px) saturate(180%);
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+        }
+
+        .nav-brand { display: flex; align-items: center; gap: 12px; }
+        .status-dot { width: 8px; height: 8px; background: var(--emerald); border-radius: 50%; box-shadow: 0 0 10px var(--emerald); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .nav-brand span { font-family: 'Orbitron'; font-size: 0.8rem; letter-spacing: 3px; font-weight: 900; }
+
+        .nav-center { position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: 40px; }
+        .nav-link { text-decoration: none; color: var(--text-main); font-size: 0.65rem; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; opacity: 0.5; transition: 0.3s; }
+        .nav-link.active { opacity: 1; color: var(--uv); }
+
+        .nav-right { display: flex; align-items: center; gap: 20px; }
+        .theme-toggle { background: var(--uv); color: white; border: none; padding: 8px 18px; border-radius: 8px; font-size: 0.65rem; font-weight: 800; cursor: pointer; }
+
+        /* --- MAP STRUCTURE --- */
+        #map-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-image: 
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 100px 100px;
+        }
+
+        .city-geometry {
+            position: absolute;
+            inset: 0;
+            opacity: 0.15;
+            color: var(--text-main);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        #map-canvas {
+            position: absolute;
+            inset: 0;
+            z-index: 5;
+            cursor: crosshair;
+        }
+
+        .vignette {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, transparent 10%, var(--bg) 110%);
+            pointer-events: none;
+            z-index: 4;
+        }
+
+        /* --- HUD ELEMENTS --- */
+        .map-hud {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--border);
+            padding: 25px;
+            border-radius: 12px;
+            z-index: 10;
+            width: 320px;
+        }
+
+        .coords { font-family: 'Orbitron'; font-size: 0.65rem; color: var(--uv); margin-bottom: 12px; display: block; letter-spacing: 1px; }
+        .service-info h2 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+        .service-info p { font-size: 0.8rem; opacity: 0.6; line-height: 1.5; font-weight: 300; }
+
+        .legend {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 12px;
+            z-index: 10;
+        }
+
+        .legend-item { display: flex; align-items: center; gap: 12px; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .legend-item:last-child { margin-bottom: 0; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+        .scanline {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(to bottom, transparent, rgba(139, 92, 246, 0.03), transparent);
+            pointer-events: none;
+            z-index: 6;
+            animation: scan 8s linear infinite;
+        }
+
+        @keyframes scan { from { transform: translateY(-100%); } to { transform: translateY(100%); } }
+
+    </style>
+</head>
+<body>
+
+    <nav class="top-nav">
+        <div class="nav-brand">
+            <div class="status-dot"></div>
+            <span>NEXGEN_GRID</span>
+        </div>
+        <div class="nav-center">
+            <a href="index.html" class="nav-link">Dashboard</a>
+            <a href="#" class="nav-link active">Map</a>
+            <a href="#" class="nav-link">Logistics</a>
+        </div>
+        <div class="nav-right">
+            <button class="theme-toggle" onclick="toggleTheme()">Swap</button>
+        </div>
+    </nav>
+
+    <div id="map-container">
+        <div class="vignette"></div>
+        <div class="scanline"></div>
+        
+        <svg class="city-geometry" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <pattern id="blocks" x="0" y="0" width="300" height="300" patternUnits="userSpaceOnUse">
+                    <rect x="20" y="20" width="80" height="140" fill="none" stroke="currentColor" stroke-width="0.3"/>
+                    <rect x="120" y="40" width="40" height="40" fill="none" stroke="currentColor" stroke-width="0.3"/>
+                    <rect x="180" y="20" width="100" height="200" fill="none" stroke="currentColor" stroke-width="0.3"/>
+                    <rect x="40" y="180" width="120" height="60" fill="none" stroke="currentColor" stroke-width="0.3"/>
+                    <line x1="0" y1="150" x2="300" y2="150" stroke="currentColor" stroke-width="0.1" />
+                    <line x1="150" y1="0" x2="150" y2="300" stroke="currentColor" stroke-width="0.1" />
+                </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#blocks)" />
+        </svg>
+
+        <canvas id="map-canvas"></canvas>
+    </div>
+
+    <div class="map-hud">
+        <span class="coords" id="cursor-coords">COORD: 40.7128 / -74.0060</span>
+        <div class="service-info" id="service-card">
+            <h2>Neural Grid Standby</h2>
+            <p>Scanning urban sectors. Hover over interactive nodes to verify infrastructure integrity and live service metrics.</p>
+        </div>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item"><div class="dot" style="background: var(--uv);"></div> Transit Network</div>
+        <div class="legend-item"><div class="dot" style="background: var(--emerald);"></div> Power Arrays</div>
+        <div class="legend-item"><div class="dot" style="background: #ff3e3e;"></div> Emergency Ops</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('map-canvas');
+        const ctx = canvas.getContext('2d');
+        const card = document.getElementById('service-card');
+        const coordsText = document.getElementById('cursor-coords');
+
+        let width, height, nodes = [];
+        let mouse = { x: -100, y: -100 };
+
+        const services = [
+            { name: "Sector 7 Transit", desc: "Maglev interchange. Operating at 94% capacity. Flow: Stable.", color: "#8b5cf6" },
+            { name: "Solaris Array 01", desc: "Centralized energy harvesting. Efficiency: 99.2%. Status: Supplying surplus.", color: "#00ffaa" },
+            { name: "District 4 Medical", desc: "Automated emergency dispatch core. Active units: 12. Response: 0.4s.", color: "#ff3e3e" },
+            { name: "Cloud Forest C", desc: "Atmospheric purification tower. Carbon capture: 4.2 tons/hr.", color: "#00ffaa" },
+            { name: "Urban Rail Link", desc: "Inter-district logistics artery. Status: Optimized.", color: "#8b5cf6" }
+        ];
+
+        function init() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            nodes = [];
+            for(let i = 0; i < 15; i++) {
+                const s = services[Math.floor(Math.random() * services.length)];
+                nodes.push({
+                    x: Math.random() * (width - 400) + 200,
+                    y: Math.random() * (height - 400) + 200,
+                    ...s
+                });
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+            
+            // Draw Interactive Nodes
+            nodes.forEach(node => {
+                const dist = Math.hypot(node.x - mouse.x, node.y - mouse.y);
+                const active = dist < 45;
+
+                // Pulsing outer ring
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, active ? 18 : 12, 0, Math.PI * 2);
+                ctx.strokeStyle = node.color;
+                ctx.globalAlpha = active ? 1 : 0.3;
+                ctx.lineWidth = active ? 2 : 1;
+                ctx.stroke();
+
+                // Center point
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 3, 0, Math.PI * 2);
+                ctx.fillStyle = node.color;
+                ctx.globalAlpha = 1;
+                ctx.fill();
+
+                if (active) {
+                    card.innerHTML = `<h2>${node.name}</h2><p>${node.desc}</p>`;
+                    // Tether line to mouse
+                    ctx.beginPath();
+                    ctx.moveTo(node.x, node.y);
+                    ctx.lineTo(mouse.x, mouse.y);
+                    ctx.strokeStyle = node.color;
+                    ctx.globalAlpha = 0.4;
+                    ctx.stroke();
+                }
+            });
+
+            requestAnimationFrame(draw);
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const target = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', target);
+            localStorage.setItem('nexgen-theme', target);
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+            coordsText.innerText = `COORD: ${(40.7 + mouse.y/10000).toFixed(4)} / ${(-74.0 + mouse.x/10000).toFixed(4)}`;
+        });
+
+        window.addEventListener('resize', init);
+        init();
+        draw();
+    </script>
+</body>
+</html>
