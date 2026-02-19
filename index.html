@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXGEN | The Urban Neural Network</title>
+    
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('nexgen-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Orbitron:wght@900&family=Syncopate:wght@700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg: #030005; 
+            --uv: #8b5cf6; 
+            --neon-rose: #ff007a; 
+            --text-main: #f1f5f9;
+            --text-dim: rgba(241, 245, 249, 0.8);
+            --surface: rgba(139, 92, 246, 0.03); 
+            --glass-border: rgba(255, 0, 122, 0.2);
+            --glow: 0 0 25px rgba(139, 92, 246, 0.4);
+        }
+
+        [data-theme="light"] {
+            --bg: #f8fafc;
+            --uv: #6d28d9;
+            --neon-rose: #be185d;
+            --text-main: #0f172a; 
+            --text-dim: rgba(15, 23, 42, 0.8);
+            --surface: rgba(109, 40, 217, 0.05);
+            --glass-border: rgba(190, 24, 93, 0.1);
+            --glow: 0 10px 30px rgba(109, 40, 217, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            transition: background 1s ease;
+        }
+
+        #particle-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            mix-blend-mode: screen; 
+            pointer-events: none;
+        }
+
+        /* --- THE LOADER --- */
+        #loader {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: clip-path 1.4s cubic-bezier(1, 0, 0, 1);
+            clip-path: inset(0 0 0 0);
+        }
+
+        .loader-title {
+            font-family: 'Syncopate', sans-serif;
+            font-size: 8vw;
+            letter-spacing: 2.5rem;
+            background: linear-gradient(90deg, var(--bg), var(--uv), var(--neon-rose), #fff, var(--bg));
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: flow 3s infinite linear;
+        }
+
+        @keyframes flow { to { background-position: 200% center; } }
+
+        /* --- THEME TOGGLE --- */
+        .theme-switch {
+            position: fixed;
+            top: 40px;
+            right: 40px;
+            z-index: 1000;
+        }
+
+        .mode-btn {
+            background: transparent;
+            color: var(--uv);
+            border: 1px solid var(--uv);
+            padding: 12px 35px;
+            font-family: 'Orbitron';
+            font-size: 10px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            box-shadow: var(--glow);
+            transition: all 0.4s ease;
+        }
+
+        .mode-btn:hover {
+            background: var(--uv);
+            color: white;
+            box-shadow: 0 0 40px var(--uv);
+        }
+
+        /* --- MAIN UI --- */
+        #main-ui {
+            position: relative;
+            z-index: 100;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 8% 1fr 8%;
+            align-items: center;
+            opacity: 0;
+            transform: scale(1.05);
+            transition: 2.5s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+
+        .content-card {
+            grid-column: 2;
+            max-width: 950px;
+            background: var(--surface);
+            backdrop-filter: blur(50px);
+            padding: 90px;
+            border-left: 2px solid var(--uv);
+            border-top: 1px solid var(--glass-border);
+            box-shadow: var(--glow);
+            position: relative;
+        }
+
+        .card-id {
+            position: absolute;
+            top: 30px;
+            left: 90px;
+            font-family: 'Orbitron';
+            font-size: 11px;
+            color: var(--neon-rose);
+            letter-spacing: 6px;
+        }
+
+        .heading {
+            font-family: 'Syncopate', sans-serif;
+            font-size: clamp(2.5rem, 6vw, 6.5vw);
+            line-height: 0.85;
+            margin-bottom: 35px;
+            font-weight: 700;
+            letter-spacing: -3px;
+            color: var(--text-main);
+        }
+
+        .heading span {
+            background: linear-gradient(135deg, var(--uv), var(--neon-rose));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 15px rgba(139, 92, 246, 0.5));
+        }
+
+        .description {
+            font-size: 1.5rem;
+            line-height: 1.7;
+            margin-bottom: 55px;
+            max-width: 680px;
+            font-weight: 300;
+            color: var(--text-dim);
+        }
+
+        .btn-enter {
+            display: inline-block;
+            text-decoration: none;
+            background: linear-gradient(45deg, var(--uv), var(--neon-rose));
+            color: white;
+            padding: 28px 90px;
+            font-family: 'Orbitron';
+            font-size: 1rem;
+            font-weight: 900;
+            letter-spacing: 10px;
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 15px 45px rgba(255, 0, 122, 0.3);
+        }
+
+        .btn-enter:hover {
+            letter-spacing: 14px;
+            transform: translateY(-5px);
+            box-shadow: 0 25px 60px rgba(139, 92, 246, 0.6);
+        }
+
+        #cursor {
+            position: fixed;
+            width: 25px; height: 25px;
+            background: var(--neon-rose);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10001;
+            mix-blend-mode: difference;
+            transition: transform 0.1s ease-out;
+            box-shadow: 0 0 20px var(--neon-rose);
+        }
+
+        .loaded #loader { clip-path: inset(0 0 0 100%); }
+        .loaded #main-ui { opacity: 1; transform: scale(1); }
+
+    </style>
+</head>
+<body data-theme="dark">
+
+    <div id="cursor"></div>
+    <canvas id="particle-canvas"></canvas>
+
+    <div id="loader">
+        <h1 class="loader-title">NEXGEN</h1>
+    </div>
+
+    <div class="theme-switch">
+        <button class="mode-btn" onclick="toggleTheme()">PROTOCOL_SWAP</button>
+    </div>
+
+    <main id="main-ui">
+        <section class="content-card">
+            <span class="card-id">URBAN_METABOLISM_CORE</span>
+            <h1 class="heading">KINETIC<br><span>DISTRICTS.</span></h1>
+            <p class="description">
+                NexGen orchestrates <strong>Sovereign Intelligence</strong> across the modern grid. 
+                We optimize urban density by integrating <strong>Hyper-Local Energy</strong> 
+                and autonomous transit into a high-fidelity experience.
+            </p>
+            <a href="dashboard.html" class="btn-enter">ACCESS CORE</a>
+        </section>
+    </main>
+
+    <script>
+        // THEME TOGGLE WITH LOCALSTORAGE
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const target = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', target);
+            localStorage.setItem('nexgen-theme', target);
+        }
+
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        const cursor = document.getElementById('cursor');
+        let particles = [];
+        let mouse = { x: -100, y: -100 };
+
+        document.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+            cursor.style.left = e.clientX - 12 + 'px';
+            cursor.style.top = e.clientY - 12 + 'px';
+        });
+
+        function init() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            particles = [];
+            for(let i=0; i<250; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2 + 0.5,
+                    vx: (Math.random() - 0.5) * 1,
+                    vy: (Math.random() - 0.5) * 1,
+                    colorType: Math.random() > 0.5 ? 'uv' : 'rose'
+                });
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const style = getComputedStyle(document.documentElement);
+            const uvColor = style.getPropertyValue('--uv').trim();
+            const roseColor = style.getPropertyValue('--neon-rose').trim();
+
+            particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy;
+                if(p.x < 0 || p.x > canvas.width) p.vx *= -1;
+                if(p.y < 0 || p.y > canvas.height) p.vy *= -1;
+
+                ctx.fillStyle = p.colorType === 'uv' ? uvColor : roseColor;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+                ctx.fill();
+            });
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('load', () => {
+            init(); animate();
+            setTimeout(() => document.body.classList.add('loaded'), 3000);
+        });
+        window.addEventListener('resize', init);
+    </script>
+</body>
+</html>
